@@ -15,7 +15,7 @@ _sym_db = _symbol_database.Default()
 from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n!message-definitions/message.proto\x12\x04pero\x1a\x1fgoogle/protobuf/timestamp.proto\"%\n\x04\x44\x61ta\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0f\n\x07\x63ontent\x18\x02 \x01(\x0c\"\x9b\x01\n\x08StageLog\x12\x0f\n\x07host_id\x18\x01 \x01(\t\x12\r\n\x05stage\x18\x02 \x01(\t\x12)\n\x05start\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\'\n\x03\x65nd\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x0e\n\x06status\x18\x05 \x01(\t\x12\x0b\n\x03log\x18\x06 \x01(\t\"\xcc\x01\n\x11ProcessingRequest\x12\x0c\n\x04uuid\x18\x01 \x01(\t\x12\x11\n\tpage_uuid\x18\x02 \x01(\t\x12\x10\n\x08priority\x18\x03 \x01(\x05\x12.\n\nstart_time\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x19\n\x11processing_stages\x18\x05 \x03(\t\x12\x1b\n\x07results\x18\x06 \x03(\x0b\x32\n.pero.Data\x12\x1c\n\x04logs\x18\x07 \x03(\x0b\x32\x0e.pero.StageLogb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n!message-definitions/message.proto\x12\x04pero\x1a\x1fgoogle/protobuf/timestamp.proto\"%\n\x04\x44\x61ta\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0f\n\x07\x63ontent\x18\x02 \x01(\x0c\"\xac\x01\n\x08StageLog\x12\x0f\n\x07host_id\x18\x01 \x01(\t\x12\r\n\x05stage\x18\x02 \x01(\t\x12)\n\x05start\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\'\n\x03\x65nd\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x0e\n\x06status\x18\x05 \x01(\t\x12\x0b\n\x03log\x18\x06 \x01(\t\x12\x0f\n\x07version\x18\x07 \x01(\t\"\xcc\x01\n\x11ProcessingRequest\x12\x0c\n\x04uuid\x18\x01 \x01(\t\x12\x11\n\tpage_uuid\x18\x02 \x01(\t\x12\x10\n\x08priority\x18\x03 \x01(\x05\x12.\n\nstart_time\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x19\n\x11processing_stages\x18\x05 \x03(\t\x12\x1b\n\x07results\x18\x06 \x03(\x0b\x32\n.pero.Data\x12\x1c\n\x04logs\x18\x07 \x03(\x0b\x32\x0e.pero.StageLogb\x06proto3')
 
 
 
@@ -49,7 +49,7 @@ if _descriptor._USE_C_DESCRIPTORS == False:
   _DATA._serialized_start=76
   _DATA._serialized_end=113
   _STAGELOG._serialized_start=116
-  _STAGELOG._serialized_end=271
-  _PROCESSINGREQUEST._serialized_start=274
-  _PROCESSINGREQUEST._serialized_end=478
+  _STAGELOG._serialized_end=288
+  _PROCESSINGREQUEST._serialized_start=291
+  _PROCESSINGREQUEST._serialized_end=495
 # @@protoc_insertion_point(module_scope)

@@ -16,6 +16,7 @@ message StageLog {
     google.protobuf.Timestamp end = 4;
     string status = 5;  // overall status of processing
     string log = 6;
+    string version = 7;
 }
 
 message ProcessingRequest {
