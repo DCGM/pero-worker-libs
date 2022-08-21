@@ -22,6 +22,7 @@ QUEUE = PERO_PATH + '/queue'
 QUEUE_TEMPLATE = QUEUE + '/{queue_name}'
 QUEUE_CONFIG_TEMPLATE = QUEUE_TEMPLATE + '/config'  # configs for processing (config.ini)
 QUEUE_CONFIG_PATH_TEMPLATE = QUEUE_TEMPLATE + '/config_path'  # path to config on FTP server
+QUEUE_CONFIG_VERSION_TEMPLATE = QUEUE_TEMPLATE + '/config_version'  # version of the configuration
 QUEUE_CONFIG_ADMINISTRATIVE_PRIORITY_TEMPLATE = QUEUE_TEMPLATE + '/administrative_priority'  # priority set by administrator to prefer queue
 QUEUE_STATS_AVG_MSG_TIME_TEMPLATE = QUEUE_TEMPLATE + '/avg_msg_time'  # average time needed for processing message from this queue
 QUEUE_STATS_AVG_MSG_TIME_LOCK_TEMPLATE = QUEUE_TEMPLATE + '/avg_msg_time_lock'  # lock for avg_msg_time access
