@@ -45,7 +45,7 @@ class MQClient:
         """
         for server in self.mq_servers:
             try:
-                self.logger.info('Connectiong to MQ server {}'.format(cf.host_port_to_string(server)))
+                self.logger.info('Connecting to MQ server {}'.format(cf.host_port_to_string(server)))
                 self.mq_connection = pika.BlockingConnection(
                     pika.ConnectionParameters(
                         host=server['host'],
@@ -59,7 +59,7 @@ class MQClient:
                 self.logger.info('Opening channel to MQ.')
                 self.mq_channel = self.mq_connection.channel()
             except pika.exceptions.AMQPError as e:
-                self.logger.error('Connection failed! Received error: {}'.format(e))
+                self.logger.error('MQ connection failed! Received error: {}'.format(e))
                 continue
             else:
                 self.logger.info('MQ connection and channel opened successfully!')

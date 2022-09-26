@@ -38,7 +38,7 @@ class SFTP_Client:
         # connect to firs server avaliable
         for server in self.sftp_servers:
             try:
-                self.logger.info('Connectiong to SFTP server {}'.format(cf.host_port_to_string(server)))
+                self.logger.info('Connecting to SFTP server {}'.format(cf.host_port_to_string(server)))
                 # get SSH connection
                 self.ssh_connection.connect(
                     hostname=server['host'],
@@ -48,7 +48,7 @@ class SFTP_Client:
                     allow_agent=False,
                     look_for_keys=False
                 )
-                self.logger.info('Opening SFTP channel')
+                self.logger.debug('Opening SFTP channel')
                 # get SFTP (SSH File Transfer Protocol) connection
                 self.sftp_connection = self.ssh_connection.open_sftp()
             except paramiko.AuthenticationException:
@@ -61,7 +61,7 @@ class SFTP_Client:
                 ))
                 continue
             else:
-                self.logger.info('Connection established successfully!')
+                self.logger.info('SFTP connection established successfully!')
                 return
         
         # failed to connect
