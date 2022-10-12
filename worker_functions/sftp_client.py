@@ -67,6 +67,18 @@ class SFTP_Client:
         # failed to connect
         raise ConnectionError('Failed to connect to SFTP servers!')
     
+    # TODO
+    # create remote directory
+    # delete remote directory
+
+    def sftp_put(self, local_file, remote_file):
+        """
+        Uploads local file to SFTP server to given path
+        :param local_file: path to local file
+        :param remote_file: path on SFTP server where local_file will be uploaded
+        """
+        self.sftp_connection.put(local_file, remote_file)
+
     def sftp_get(self, remote_file, local_file):
         """
         Receive file from SFTP server
