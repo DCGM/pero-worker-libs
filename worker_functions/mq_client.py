@@ -65,6 +65,36 @@ class MQClient:
                 self.logger.info('MQ connection and channel opened successfully!')
                 break
     
+    def mq_connect_retry(self, *, heartbeat = 60, max_retry = 0, retry_interval = 30):
+        """
+        Connect to message broker, retry connection until success or max_retry count is reached
+        :param heartbeat: connection heartbeat interval (keepalive message to prevent disconnect)
+        :param max_retry: maximum number of connection retries before giving up (0 = try forever)
+        :param retry_interval: interval between connection retries
+        :raise: ConnectionError if maximum number of retries is reached
+        """
+        retry_count = 0
+
+        while not (self.mq_connection and self.mq_connection.is_open and self.mq_channel and self.mq_channel.is_open):
+            # wait before retry
+            if retry_count != 0:
+                self.logger.warning(
+                    'Failed to connect to MQ servers, waiting for {n} seconds to retry!'
+                    .format(n=retry_interval)
+                )
+                time.sleep(retry_interval)
+            
+            # Connect to MQ servers
+            self.mq_connect(heartbeat=heartbeat)
+            retry_count += 1
+
+            # maximum number of retries reached
+            if max_retry and retry_count == max_retry:
+                break
+        
+        if not (self.mq_connection and self.mq_connection.is_open and self.mq_channel and self.mq_channel.is_open):
+            raise ConnectionError('Failed to connect to MQ servers, maximum number of retries reached!')
+    
     def mq_disconnect(self):
         """
         Stops connection to message broker
