@@ -39,11 +39,18 @@ class MQClient:
         self.mq_connection = None
         self.mq_channel = None
     
+    def get_mq_servers(self):
+        """
+        MQ server list getter.
+        :return: list of configured MQ servers
+        """
+        return self.mq_servers
+
     def mq_connect(self, heartbeat = 60):
         """
         Connect to message broker
         """
-        for server in self.mq_servers:
+        for server in self.get_mq_servers():
             try:
                 self.logger.info('Connecting to MQ server {}'.format(cf.host_port_to_string(server)))
                 self.mq_connection = pika.BlockingConnection(
