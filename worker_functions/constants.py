@@ -37,8 +37,13 @@ MQ_VHOST = '/pero'
 # worker status
 STATUS_STARTING = 'STARTING'
 STATUS_PROCESSING = 'PROCESSING'
-STATUS_RECONFIGURING = 'RECONFIGURING'
+STATUS_CONFIGURING = 'CONFIGURING'                    # changing configuration of stage / swithing stage
+STATUS_CONNECTING = 'CONNECTING'                      # includes reconection attempts
 STATUS_IDLE = 'IDLE'
-STATUS_FAILED = 'FAILED'
-STATUS_DEAD = 'DEAD'
-
+STATUS_PROCESSING_FAILED = 'PROCESSING_FAILED'        # unknown processing failure
+STATUS_CONNECTION_FAILED = 'CONNECTION_FAILED'        # connection failed and recconection attepts too
+STATUS_CONFIGURATION_FAILED = 'CONFIGURATION_FAILED'  # failed to reconfigure worker / switch stage
+STATUS_DEAD = 'DEAD'                                  # worker is not running
+# backward compatibility
+STATUS_RECONFIGURING = STATUS_CONFIGURING
+STATUS_FAILED = STATUS_PROCESSING_FAILED
