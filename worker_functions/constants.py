@@ -9,6 +9,7 @@ PERO_PATH = '/pero'
 WORKER_STATUS = PERO_PATH + '/worker/status'
 WORKER_STATUS_ID_TEMPLATE = WORKER_STATUS + '/{worker_id}'
 WORKER_STATUS_TEMPLATE = WORKER_STATUS_ID_TEMPLATE + '/status'  # current worker status
+WORKER_STATUS_CONNECTED_TEMPLATE = WORKER_STATUS_TEMPLATE + '/connected'  # indicates if worker is connected to zookeeper (should be always ephemeral node!)
 WORKER_QUEUE_TEMPLATE = WORKER_STATUS_ID_TEMPLATE + '/queue'  # input queue
 WORKER_ENABLED_TEMPLATE = WORKER_STATUS_ID_TEMPLATE + '/enabled'  # worker enabled
 WORKER_UNLOCK_TIME = WORKER_STATUS_ID_TEMPLATE + '/unlock_time'  # time after which it is possible to switch worker to another queue
