@@ -5,6 +5,7 @@
 import pika
 import logging
 import ssl
+import time
 
 import worker_functions.connection_aux_functions as cf
 import worker_functions.constants as constants
