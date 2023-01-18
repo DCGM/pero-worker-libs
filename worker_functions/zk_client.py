@@ -3,6 +3,7 @@
 # client for zookeeper
 
 import logging
+import traceback
 # zookeeper
 from kazoo.client import KazooClient
 from kazoo.handlers.threading import KazooTimeoutError

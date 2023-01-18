@@ -2,7 +2,6 @@
 
 # auxiliary functions for zookeeper
 
-import json # DEBUG
 import ipaddress
 import re
 
