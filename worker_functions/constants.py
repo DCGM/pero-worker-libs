@@ -42,7 +42,8 @@ STATUS_CONFIGURING = 'CONFIGURING'                    # changing configuration o
 STATUS_CONNECTING = 'CONNECTING'                      # includes reconection attempts
 STATUS_IDLE = 'IDLE'
 STATUS_PROCESSING_FAILED = 'PROCESSING_FAILED'        # unknown processing failure
-STATUS_CONNECTION_FAILED = 'CONNECTION_FAILED'        # connection failed and recconection attepts too
+STATUS_MQ_CONNECTION_FAILED = 'MQ_CONNECTION_FAILED'  # MQ connection failed and recconection attepts too
+STATUS_ZK_CONNECTION_FAILED = 'ZK_CONNECTION_FAILED'  # ZK connection failed
 STATUS_CONFIGURATION_FAILED = 'CONFIGURATION_FAILED'  # failed to reconfigure worker / switch stage
 STATUS_DEAD = 'DEAD'                                  # worker is not running
 # backward compatibility
