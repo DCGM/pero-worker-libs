@@ -6,6 +6,7 @@ import pika
 import logging
 import ssl
 import time
+import traceback
 
 import worker_functions.connection_aux_functions as cf
 import worker_functions.constants as constants
@@ -106,6 +107,7 @@ class MQClient:
     def mq_disconnect(self):
         """
         Stops connection to message broker
+        :raise: ValueError when connection or channel is broken due to timeout
         """
         if self.mq_channel and self.mq_channel.is_open:
             self.mq_channel.close()
@@ -114,4 +116,8 @@ class MQClient:
             self.mq_connection.close()
     
     def __del__(self):
-        self.mq_disconnect()
+        try:
+            self.mq_disconnect()
+        except ValueError:
+            self.logger.error('Failed to close connection to MQ, connection timed out!')
+            self.logger.debug(f'Received error:\n{traceback.format_exc()}')
