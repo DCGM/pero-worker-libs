@@ -118,6 +118,6 @@ class MQClient:
     def __del__(self):
         try:
             self.mq_disconnect()
-        except ValueError:
+        except (ValueError, pika.exceptions.AMQPError):
             self.logger.error('Failed to close connection to MQ, connection timed out!')
             self.logger.debug(f'Received error:\n{traceback.format_exc()}')
