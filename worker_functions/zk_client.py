@@ -13,7 +13,7 @@ import kazoo.exceptions
 logger = logging.getLogger(__name__)
 
 class ZkClient:
-    def __init__(self, zookeeper_servers, username = '', password = '', ca_cert = None, logger = logging.getLogger(__name__)):
+    def __init__(self, zookeeper_servers, username = '', password = '', ca_cert = None, connection_retry = None, logger = logging.getLogger(__name__)):
         # list of zookeeper servers
         self.zookeeper_servers = zookeeper_servers
 
@@ -29,6 +29,9 @@ class ZkClient:
             }
         else:
             self.zk_auth = None
+
+        # retry command
+        self.connection_retry = connection_retry
 
         # logger
         self.logger = logger
@@ -49,7 +52,8 @@ class ZkClient:
             hosts=self.zookeeper_servers,
             ca=self.ca_cert,
             use_ssl=True if self.ca_cert else False,
-            sasl_options=self.zk_auth
+            sasl_options=self.zk_auth,
+            connection_retry=self.connection_retry
         )
 
         try:
