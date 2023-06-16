@@ -33,7 +33,7 @@ QUEUE_STATS_WAITING_SINCE_TEMPLATE = QUEUE_TEMPLATE + '/waiting_since'  # time w
 ZK_INT_BYTEORDER = 'big'  # Big endian - MSB is at the beginning of the byte object
 
 # rabbitmq vhost
-MQ_VHOST = '/pero'
+MQ_VHOST = 'pero'
 
 # worker status
 STATUS_STARTING = 'STARTING'
