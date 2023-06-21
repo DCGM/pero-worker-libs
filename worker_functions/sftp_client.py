@@ -4,6 +4,8 @@
 
 import logging
 import paramiko
+import stat
+import os
 
 import worker_functions.connection_aux_functions as cf
 
@@ -67,9 +69,78 @@ class SFTP_Client:
         # failed to connect
         raise ConnectionError('Failed to connect to SFTP servers!')
     
-    # TODO
-    # create remote directory
-    # delete remote directory
+    def sftp_ensure_dir(self, path):
+        """
+        Ensures that target directory specified by path exists.
+        :param path: directory to create / check for existence
+        :raise ValueError: if relative path is suplied
+        :raise PermissionError: if sftp user has insuficient permissions
+        :raise FileExistsError: if file with conflicting name exists
+        """
+        
+        # root dir always exists
+        if path == '/':
+            return
+        
+        # path not specified (does not start at root)
+        if path == '':
+            raise ValueError('Relative path is not supported!')
+
+        try:
+            # check if file/directory exists on given path
+            stats = self.sftp_connection.stat(path)
+        except FileNotFoundError:
+            # create path to current folder
+            self.sftp_ensure_dir(os.path.split(path)[0])
+            # create current folder
+            self.sftp_connection.mkdir(path)
+        else:
+            # check if file found on given path is directory
+            if not stat.S_ISDIR(stats.st_mode):
+                raise FileExistsError(
+                    f'Failed to create directory, {path} is a file!'
+                )
+
+    def sftp_remove_empty_dir(self, path):
+        """
+        Removes empty directory and all empty parent directories given by path.
+        :param path: directory to remove
+        :raise ValueError: if path is empty or relative path is used
+        """
+
+        # root dir cannot be removed
+        if path == '/':
+            return
+        
+        # path not specified
+        if path == '':
+            raise ValueError('Path cannot be empty!')
+        
+        # remove empty dir
+        try:
+            self.sftp_connection.rmdir(path)
+        except FileNotFoundError:
+            # directory does not exists - nothing to remove
+            return
+        except PermissionError:
+            # usually happens at the lowes level of direcotry structure
+            return
+        except OSError:
+            # directory not empty
+            return
+        else:
+            # remove parent directory if its now empty
+            self.sftp_remove_empty_dir(os.path.split(path)[0])
+
+    def sftp_remove_file(self, path):
+        """
+        Removes file given by path from sftp server.
+        :param path: path to file to remove
+        :raise FileNotFoundError: if file is not found
+        :raise OSError: if target is directory not a file
+        :raise PermissionError: if unsuficient permissions to remove the file
+        """
+        self.sftp_connection.remove(path)
 
     def sftp_put(self, local_file, remote_file):
         """
