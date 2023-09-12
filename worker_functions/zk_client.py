@@ -10,8 +10,6 @@ from kazoo.handlers.threading import KazooTimeoutError
 from kazoo.protocol.states import KazooState
 import kazoo.exceptions
 
-logger = logging.getLogger(__name__)
-
 class ZkClient:
     def __init__(self, zookeeper_servers, username = '', password = '', ca_cert = None, logger = logging.getLogger(__name__)):
         # list of zookeeper servers

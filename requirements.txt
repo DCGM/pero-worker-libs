@@ -1,0 +1,7 @@
+# worker adapter
+pika
+kazoo
+pure-sasl
+drymail
+protobuf
+
