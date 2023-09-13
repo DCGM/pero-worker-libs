@@ -139,19 +139,19 @@ class WorkerAdapter(MQClient):
                 try:
                     self.mq_connect_retry(
                         confirm_delivery=True,
-                        max_retry=10
+                        max_retry=self.max_error_count + 1,
+                        retry_interval=self.recovery_timeout
                     )
                 except ConnectionError:
                     self.logger.error(
                         'Failed to connect to MQ servers, trying again!'
                     )
-                    if self.error_count > self.max_error_count:
-                        self.mail_client.send_mail_notification(
-                            subject=f'{self.mail_subject_prefix}'
-                                    ' - MQ connection error!',
-                            body=f'{e}'
-                        )
-                    self.error_count += 1
+                    self.mail_client.send_mail_notification(
+                        subject=f'{self.mail_subject_prefix}'
+                                ' - MQ connection error!',
+                        body=f'{e}'
+                    )
+                    self.error_count += self.max_error_count + 1
                     continue
 
                 self.mq_channel.basic_consume(
@@ -301,19 +301,19 @@ class WorkerAdapter(MQClient):
                 try:
                     self.mq_connect_retry(
                         confirm_delivery=True,
-                        max_retry=10
+                        max_retry=self.max_error_count + 1,
+                        retry_interval=self.recovery_timeout
                     )
                 except ConnectionError:
                     self.logger.error(
                         'Failed to connect to MQ servers, trying again!'
                     )
-                    if self.error_count > self.max_error_count:
-                        self.mail_client.send_mail_notification(
+                    self.mail_client.send_mail_notification(
                         subject=f'{self.mail_subject_prefix}'
                                 ' - MQ connection error!',
                         body=f'{e}'
                     )
-                    self.error_count += 1
+                    self.error_count += self.max_error_count + 1
                     continue
 
                 # upload processing request
