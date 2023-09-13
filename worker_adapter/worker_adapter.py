@@ -335,7 +335,12 @@ class WorkerAdapter(MQClient):
                                 'input queue in configuration!',
                         body=f'{e}'
                     )
-                    report_error(processing_request, str(e))
+                    report_error(
+                        processing_request,
+                        f'Failed to upload page {processing_request.page_uuid}'
+                        ' due to wrong input queue in configuration!\n'
+                        f'Received error: {str(e)}'
+                    )
                 except pika.exceptions.AMQPError as e:
                     self.logger.error(
                         'Failed to upload processing request due to'
