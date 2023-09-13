@@ -5,6 +5,7 @@ from worker_functions.zk_client import ZkClient
 
 import threading
 import logging
+import copy
 
 
 class ZkAdapterClient(ZkClient):
