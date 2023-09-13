@@ -40,7 +40,7 @@ class WorkerAdapter(MQClient):
         username:            str,
         password:            str,
         ca_cert:             str,
-        recover_timeout:     int = 60,
+        recovery_timeout:     int = 60,
         max_error_count:     int = 10,
         logger:              logging.Logger = logging.getLogger(__name__)
     ):
