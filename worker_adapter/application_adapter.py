@@ -3,6 +3,8 @@
 from abc import ABC, abstractmethod
 from message_definitions.message_pb2 import ProcessingRequest
 
+import datetime
+
 class ApplicationAdapter(ABC):
     """
     Application adapter - encapsulates application specific logic for worker
