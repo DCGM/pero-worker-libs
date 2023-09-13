@@ -371,7 +371,7 @@ class WorkerAdapter(MQClient):
                     break
                 else:
                     # update page after successfull upload
-                    confirm_send(processing_request)
+                    confirm_send(processing_request, timestamp)
                     self.error_count = 0
                     self.logger.info(
                         f'Page {processing_request.page_uuid}'
