@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 from abc import ABC, abstractmethod
-from message_definitions import ProcessingRequest
+from message_definitions.message_pb2 import ProcessingRequest
 
 class ApplicationAdapter(ABC):
     """
