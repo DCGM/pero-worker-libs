@@ -53,7 +53,7 @@ class ApplicationAdapter(ABC):
     @abstractmethod
     def report_error(self,
         processing_request: ProcessingRequest,
-        timestamp: datetime.datetime
+        traceback: str
     ) -> None:
         """
         Method called by worker adapter when processing request cannot be sent
@@ -61,7 +61,7 @@ class ApplicationAdapter(ABC):
         happen when the request is malformed or processing stages does not
         exits. This method can be used to mark request as failed.
         :param processing_request: processing request that could not be send
-        :param timestamp: timestamp when failure occured, can be empty
+        :param traceback: error traceback / error message
         :nothrow
         """
         pass

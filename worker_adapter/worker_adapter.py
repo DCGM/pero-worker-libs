@@ -266,7 +266,7 @@ class WorkerAdapter(MQClient):
             instance as its argument.
         :param report_error: method called when sending of ProcessingRequest
             fails due to unrecoverable error. Method must take ProcessingRequest
-            instance and Exception instance as arguments.
+            instance and string error message as arguments.
         :returns: execution status (0 == ok, else failed)
         """
         return_code = 0
@@ -330,7 +330,7 @@ class WorkerAdapter(MQClient):
                                 'input queue in configuration!',
                         body=f'{e}'
                     )
-                    report_error(processing_request, e)
+                    report_error(processing_request, str(e))
                 except pika.exceptions.AMQPError as e:
                     self.logger.error(
                         'Failed to upload processing request due to'
