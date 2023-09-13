@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
-import worker_functions.constants as cf
+import worker_functions.constants as constants
+import worker_functions.connection_aux_functions as cf
 from worker_functions.zk_client import ZkClient
 
 import threading
