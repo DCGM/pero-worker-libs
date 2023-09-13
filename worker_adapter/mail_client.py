@@ -111,7 +111,7 @@ class MailClient:
         try:
             self.send_mail(
                 subject=subject,
-                body=body,
+                body=body.replace('\n', '<br>'),
                 user=self.user,
                 password=self.password,
                 receivers=self.receivers,

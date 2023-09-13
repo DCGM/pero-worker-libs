@@ -133,7 +133,7 @@ class WorkerAdapter(MQClient):
         """
         return_code = 0
         self.on_message_receive = on_message_receive
-
+        self.logger.info('Result receiving started!')
         while True:
             try:
                 try:
@@ -191,7 +191,7 @@ class WorkerAdapter(MQClient):
             
             except KeyboardInterrupt:
                 # prevent keyboard interrupt generating error messages
-                self.logger.info('Result receiving stoped!')
+                self.logger.info('Result receiving stopped!')
                 break
             except Exception:
                 error = traceback.format_exc()
@@ -270,6 +270,7 @@ class WorkerAdapter(MQClient):
         :returns: execution status (0 == ok, else failed)
         """
         return_code = 0
+        self.logger.info('Request uploading started!')
         while True:
             # watch for keyboard interrupt
             try:
@@ -289,6 +290,7 @@ class WorkerAdapter(MQClient):
                             body=f'{error}'
                         )
                     self.error_count += 1
+                    time.sleep(self.recovery_timeout)
                     continue
 
                 # no request is ready for processing
