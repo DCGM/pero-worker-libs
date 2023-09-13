@@ -230,16 +230,16 @@ class WorkerAdapter(MQClient):
         
         # generate input timestamp
         timestamp = datetime.datetime.now(datetime.timezone.utc)
-        Timestamp.FromDatetime(request.start_time, timestamp)
+        Timestamp.FromDatetime(processing_request.start_time, timestamp)
 
         # send request
         self.mq_channel.basic_publish(
             exchange='',
             routing_key=input_queue_name,
-            body=request.SerializeToString(),
+            body=processing_request.SerializeToString(),
             properties=pika.BasicProperties(
                 delivery_mode=2,
-                priority=request.priority
+                priority=processing_request.priority
             ),
             mandatory=True
         )
