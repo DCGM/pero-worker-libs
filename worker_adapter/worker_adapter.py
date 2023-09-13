@@ -318,7 +318,10 @@ class WorkerAdapter(MQClient):
 
                 # upload processing request
                 try:
-                    timestamp = self.mq_send_request(processing_request)
+                    timestamp = self.mq_send_request(
+                        processing_request=processing_request,
+                        output_queue_name=output_queue_name
+                    )
                 except pika.exceptions.UnroutableError as e:
                     self.logger.error(
                         f'Failed to upload page {processing_request.page_uuid}'
