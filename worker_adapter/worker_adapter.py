@@ -26,6 +26,20 @@ class WorkerAdapterRecoverableError(WorkerAdapterError):
     """
 
 
+class BadRequestError(WorkerAdapterError):
+    """
+    Unrecoverable error occures when request does not have valid input queue,
+    so it cannot be routed by message broker.
+    """
+    def __init__(self, message: str, request: ProcessingRequest = None):
+        """
+        :param message: error message to show.
+        :param request: request that caused the exception
+        """
+        super().__init__(message)
+        self.request = request
+
+
 class WorkerAdapter(MQClient):
     """
     Worker adapter for connecting application to worker processing system.
@@ -40,7 +54,7 @@ class WorkerAdapter(MQClient):
         username:            str,
         password:            str,
         ca_cert:             str,
-        recovery_timeout:     int = 60,
+        recovery_timeout:    int = 60,
         max_error_count:     int = 10,
         logger:              logging.Logger = logging.getLogger(__name__)
     ):
@@ -160,35 +174,33 @@ class WorkerAdapter(MQClient):
                     auto_ack = False
                 )
 
-                try:
-                    self.mq_channel.start_consuming()
-                except pika.exceptions.AMQPError as e:
-                    # connection failed - continue / recover
-                    self.logger.error(
-                        'Result receiving failed due to MQ connection error!'
+                self.mq_channel.start_consuming()
+            except pika.exceptions.AMQPError as e:
+                # connection failed - continue / recover
+                self.logger.error(
+                    'Result receiving failed due to MQ connection error!'
+                )
+                self.logger.debug(f'Received error: {e}')
+                if self.error_count > self.max_error_count:
+                    self.mail_client.send_mail_notification(
+                        subject=f'{self.mail_subject_prefix}'
+                                ' - MQ connection error!',
+                        body=f'{e}'
                     )
-                    self.logger.debug(f'Received error: {e}')
-                    if self.error_count > self.max_error_count:
-                        self.mail_client.send_mail_notification(
-                            subject=f'{self.mail_subject_prefix}'
-                                    ' - MQ connection error!',
-                            body=f'{e}'
-                        )
-                    self.error_count += 1
-                except WorkerAdapterRecoverableError as e:
-                    # result could not be processed by adapter logic - recoverable
-                    error = traceback.format_exc()
-                    self.logger.error('Failed to receive result!')
-                    self.logger.debug(f'Received error:\n{error}')
-                    if self.error_count > self.max_error_count:
-                        self.mail_client.send_mail_notification(
-                            subject=f'{self.mail_subject_prefix}'
-                                    ' - Adapter error count exceeded!',
-                            body=f'{error}'
-                        )
-                    self.error_count += 1
-                    time.sleep(self.recovery_timeout)
-            
+                self.error_count += 1
+            except WorkerAdapterRecoverableError as e:
+                # result could not be processed by adapter logic - recoverable
+                error = traceback.format_exc()
+                self.logger.error('Failed to receive result!')
+                self.logger.debug(f'Received error:\n{error}')
+                if self.error_count > self.max_error_count:
+                    self.mail_client.send_mail_notification(
+                        subject=f'{self.mail_subject_prefix}'
+                                ' - Adapter error count exceeded!',
+                        body=f'{error}'
+                    )
+                self.error_count += 1
+                time.sleep(self.recovery_timeout)
             except KeyboardInterrupt:
                 # prevent keyboard interrupt generating error messages
                 self.logger.info('Result receiving stopped!')
@@ -214,7 +226,7 @@ class WorkerAdapter(MQClient):
     def mq_send_request(self,
         processing_request: ProcessingRequest,
         output_queue_name: str
-    ):
+    ) -> datetime.datetime:
         """
         Sends processing request to the MQ server.
         :param processing_request: processing request instance to send
@@ -246,57 +258,21 @@ class WorkerAdapter(MQClient):
 
         return timestamp
 
-    def start_uploading_requests(self,
-            output_queue_name: str,
-            get_request:       callable,
-            confirm_send:      callable,
-            report_error:      callable,
-        ):
+    def upload_request(self,
+            processing_request: ProcessingRequest,
+            output_queue_name: str
+        ) -> datetime.datetime:
         """
-        Periodically uploads processing requests to MQ.
-        Processing reuqests are taken from method get_request passed
-        to the constructor. After request is successfully sent to MQ, method
-        confirm_send is called with ProcessingRequest instance as argument.
+        Uploads processing request to MQ.
+        :param processing_request: processing request to send.
         :param output_queue_name: name of the output queue to which processed
             results should be uploaded to.
-        :param get_request: method that returns ProcessingRequest
-            instance to send to MQ.
-        :param confirm_send: method called after ProcessingRequest is
-            successfully send to MQ. Method must take ProcessingRequest
-            instance as its argument.
-        :param report_error: method called when sending of ProcessingRequest
-            fails due to unrecoverable error. Method must take ProcessingRequest
-            instance and string error message as arguments.
-        :returns: execution status (0 == ok, else failed)
+        :returns: timestamp when request was send
         """
-        return_code = 0
-        self.logger.info('Request uploading started!')
+        timestamp = None
         while True:
             # watch for keyboard interrupt
             try:
-                # get processing request
-                try:
-                    processing_request = get_request()
-                except WorkerAdapterRecoverableError:
-                    error = traceback.format_exc()
-                    self.logger.error(
-                        'Failed to get processing request, recovering!'
-                    )
-                    self.logger.error(f'Received error:\n{error}')
-                    if self.error_count > self.max_error_count:
-                        self.mail_client.send_mail_notification(
-                            subject=f'{self.mail_subject_prefix}'
-                                    ' - Failed to get processing request!',
-                            body=f'{error}'
-                        )
-                    self.error_count += 1
-                    time.sleep(self.recovery_timeout)
-                    continue
-
-                # no request is ready for processing
-                if not processing_request:
-                    continue
-
                 # connect to MQ
                 try:
                     self.mq_connect_retry(
@@ -322,25 +298,6 @@ class WorkerAdapter(MQClient):
                         processing_request=processing_request,
                         output_queue_name=output_queue_name
                     )
-                except pika.exceptions.UnroutableError as e:
-                    self.logger.error(
-                        f'Failed to upload page {processing_request.page_uuid}'
-                        ' due to wrong input queue in configuration!'
-                    )
-                    self.logger.debug(f'Received error:\n{e}')
-                    self.mail_client.send_mail_notification(
-                        subject=f'{self.mail_subject_prefix}'
-                                ' - Failed to upload page'
-                                f' {processing_request.page_uuid} due to wrong '
-                                'input queue in configuration!',
-                        body=f'{e}'
-                    )
-                    report_error(
-                        processing_request,
-                        f'Failed to upload page {processing_request.page_uuid}'
-                        ' due to wrong input queue in configuration!\n'
-                        f'Received error: {str(e)}'
-                    )
                 except pika.exceptions.AMQPError as e:
                     self.logger.error(
                         'Failed to upload processing request due to'
@@ -355,51 +312,41 @@ class WorkerAdapter(MQClient):
                         )
                     self.error_count += 1
                     time.sleep(self.recovery_timeout)
-                except KeyboardInterrupt:
-                    # prevent keyboard interrupt generating error messages
-                    raise
-                except Exception:
-                    error = traceback.format_exc()
-                    self.logger.error(
-                        f'Failed to upload page {processing_request.page_uuid}'
-                        ' to MQ!'
-                    )
-                    self.logger.error(f'Received error:\n{error}')
-                    self.mail_client.send_mail_notification(
-                        subject=f'{self.mail_subject_prefix} - Failed to upload'
-                                f' page {processing_request.page_uuid} to MQ '
-                                'due to unrecoverable error!',
-                        body=f'{error}'
-                    )
-                    self.error_count += 1
-                    return_code = 1
-                    break
-                else:
-                    # update page after successfull upload
-                    confirm_send(processing_request, timestamp)
-                    self.error_count = 0
-                    self.logger.info(
-                        f'Page {processing_request.page_uuid}'
-                        ' uploaded successfully!'
-                    )
+                    continue
             except KeyboardInterrupt:
                 # prevent keyboard interrupt generating error messages
-                self.logger.info('Request uploading stopped!')
-                break
+                raise
+            except pika.exceptions.UnroutableError:
+                raise BadRequestError(
+                    message=f'Failed to upload page {processing_request.page_uuid}'
+                    ' due to wrong input queue in configuration!',
+                    request=processing_request
+                )
             except Exception:
                 error = traceback.format_exc()
                 self.logger.error(
-                    'Unrecoverable error has occured during request uploading!'
+                    f'Failed to upload page {processing_request.page_uuid}'
+                    ' to MQ!'
                 )
                 self.logger.error(f'Received error:\n{error}')
                 self.mail_client.send_mail_notification(
-                    subject=f'{self.mail_subject_prefix}'
-                            ' - Unrecoverable error has occured during'
-                            ' request uploading!',
+                    subject=f'{self.mail_subject_prefix} - Failed to upload'
+                            f' page {processing_request.page_uuid} to MQ '
+                            'due to unrecoverable error!',
                     body=f'{error}'
                 )
                 self.error_count += 1
-                return_code = 1
+                raise WorkerAdapterError(
+                    f'Failed to upload page {processing_request.page_uuid}'
+                    ' to MQ!'
+                )
+            else:
+                # update page after successfull upload
+                self.error_count = 0
+                self.logger.info(
+                    f'Page {processing_request.page_uuid}'
+                    ' uploaded successfully!'
+                )
                 break
         
-        return return_code
+        return timestamp
