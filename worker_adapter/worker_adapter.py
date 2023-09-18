@@ -268,6 +268,10 @@ class WorkerAdapter(MQClient):
         :param output_queue_name: name of the output queue to which processed
             results should be uploaded to.
         :returns: timestamp when request was send
+        :raise BadRequestError when fails to upload processing_request to MQ
+            due to wrong input queue in configuration.
+        :raise WorkerAdapterError when unrecoverable error occurs during request
+            uploading.
         """
         timestamp = None
         while True:
