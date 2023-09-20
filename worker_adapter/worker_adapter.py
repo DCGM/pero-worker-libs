@@ -54,8 +54,8 @@ class WorkerAdapter(MQClient):
         ca_cert:             str,
         connection_retry_interval:    int = 5,
         connection_max_retry_count:     int = 10,
-        send_retry_interval: int = 5,
-        send_max_retry_count: int = 5,
+        send_receive_retry_interval: int = 5,
+        send_receive_max_retry_count: int = 5,
         mail_client: object = None,
         logger:              logging.Logger = logging.getLogger(__name__)
     ):
@@ -85,8 +85,8 @@ class WorkerAdapter(MQClient):
 
         self.connection_retry_interval = connection_retry_interval
         self.connection_max_retry_count = connection_max_retry_count
-        self.send_retry_interval = send_retry_interval
-        self.send_max_retry_count = send_max_retry_count
+        self.send_receive_retry_interval = send_receive_retry_interval
+        self.send_receive_max_retry_count = send_receive_max_retry_count
     
     def __del__(self):
         super().__del__()
@@ -119,7 +119,7 @@ class WorkerAdapter(MQClient):
 
         try:
             self.on_message_receive(processing_request)
-        except Exception:
+        except Exception as e:
             channel.basic_nack(
                 delivery_tag = method.delivery_tag,
                 requeue = True
@@ -145,74 +145,76 @@ class WorkerAdapter(MQClient):
         return_code = 0
         self.on_message_receive = on_message_receive
         self.logger.info('Result receiving started!')
+
+        send_receive_retry_count = 0
+
         while True:
             try:
-                try:
-                    self.mq_connect_retry(
-                        confirm_delivery=True,
-                        max_retry=self.max_error_count + 1,
-                        retry_interval=self.recovery_timeout
-                    )
-                except ConnectionError as e:
-                    self.logger.error(
-                        'Failed to connect to MQ servers, trying again!'
-                    )
+                self.mq_connect_retry(
+                    confirm_delivery=True,
+                    max_retry=self.connection_max_retry_count,
+                    retry_interval=self.connection_retry_interval
+                )
+
+            except ConnectionError as e:
+                self.logger.error(
+                    'Failed to connect to MQ servers, trying again!'
+                )
+                if self.mail_client is not None:
                     self.mail_client.send_mail_notification(
                         subject=f'MQ connection error!',
                         body=f'{e}'
                     )
-                    self.error_count += self.max_error_count + 1
-                    continue
+                raise WorkerAdapterError(
+                    f'Failed to upload page {processing_request.page_uuid}'
+                    ' to MQ!'
+                ) from e
 
+            try:
                 self.mq_channel.basic_consume(
                     queue_name,
                     self._mq_receive_result_callback,
                     auto_ack = False
                 )
-
                 self.mq_channel.start_consuming()
+
             except pika.exceptions.AMQPError as e:
                 # connection failed - continue / recover
                 self.logger.error(
                     'Result receiving failed due to MQ connection error!'
                 )
-                self.logger.debug(f'Received error: {e}')
-                if self.error_count > self.max_error_count:
-                    self.mail_client.send_mail_notification(
-                        subject=f'MQ connection error!',
-                        body=f'{e}'
-                    )
-                self.error_count += 1
+                self.logger.debug(f'{e}')
+
+                if send_receive_retry_count >= self.send_receive_max_retry_count:
+                    if self.mail_client is not None:
+                        self.mail_client.send_mail_notification(
+                            subject=f'MQ connection error!',
+                            body=f'{e}'
+                        )
+                    raise WorkerAdapterError(
+                        f'Failed to upload page {processing_request.page_uuid}'
+                        ' to MQ!'
+                    ) from e
+                send_receive_retry_count += 1
+                time.sleep(self.send_receive_retry_interval)
+
             except WorkerAdapterRecoverableError as e:
                 # result could not be processed by adapter logic - recoverable
                 error = traceback.format_exc()
                 self.logger.error('Failed to receive result!')
                 self.logger.debug(f'Received error:\n{error}')
-                if self.error_count > self.max_error_count:
-                    self.mail_client.send_mail_notification(
-                        subject=f'Adapter error count exceeded!',
-                        body=f'{error}'
-                    )
-                self.error_count += 1
-                time.sleep(self.recovery_timeout)
-            except KeyboardInterrupt:
-                # prevent keyboard interrupt generating error messages
-                self.logger.info('Result receiving stopped!')
-                break
-            except Exception:
-                error = traceback.format_exc()
-                self.logger.error(
-                    'Unrecoverable error has occured during result receiving!'
-                )
-                self.logger.error(f'Received error:\n{error}')
-                self.mail_client.send_mail_notification(
-                    subject=f'Unrecoverable error has occured during'
-                            ' result receiving!',
-                    body=f'{error}'
-                )
-                self.error_count += 1
-                return_code = 1
-                break
+                if send_receive_retry_count > self.send_receive_max_retry_count:
+                    if self.mail_client is not None:
+                        self.mail_client.send_mail_notification(
+                            subject=f'Adapter error count exceeded!',
+                            body=f'{error}'
+                        )
+                    raise WorkerAdapterError(
+                        f'Failed to upload page {processing_request.page_uuid}'
+                        ' to MQ!'
+                    ) from e
+                send_receive_retry_count += 1
+                time.sleep(self.send_receive_retry_interval)
         
         return return_code
     
@@ -298,20 +300,13 @@ class WorkerAdapter(MQClient):
                     output_queue_name=output_queue_name
                 )
 
-            except pika.exceptions.UnroutableError as e:
-                raise BadRequestError(
-                    message=f'Failed to upload page {processing_request.page_uuid}'
-                    ' due to wrong input queue in configuration!',
-                    request=processing_request
-                ) from e
-
             except pika.exceptions.AMQPError as e:
                 self.logger.error(
                     'Failed to upload processing request due to'
                     ' MQ connection error!'
                 )
                 self.logger.debug(f'{e}')
-                if send_retry_count >= self.send_max_retry_count:
+                if send_retry_count >= self.send_receive_max_retry_count:
                     if self.mail_client is not None:
                         self.mail_client.send_mail_notification(
                             subject=f'MQ connection error!',
@@ -322,8 +317,14 @@ class WorkerAdapter(MQClient):
                         ' to MQ!'
                     ) from e
                 send_retry_count += 1
-                time.sleep(self.send_retry_interval)
+                time.sleep(self.send_receive_retry_interval)
 
+            except pika.exceptions.UnroutableError as e:
+                raise BadRequestError(
+                    message=f'Failed to upload page {processing_request.page_uuid}'
+                    ' due to wrong input queue in configuration!',
+                    request=processing_request
+                ) from e
 
             else:
                 self.logger.info(
