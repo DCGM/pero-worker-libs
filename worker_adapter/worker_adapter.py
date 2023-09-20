@@ -49,13 +49,14 @@ class WorkerAdapter(MQClient):
     def __init__(
         self,
         zk_client:           object,
-        mail_client:         object,
-        mail_subject_prefix: str,
         username:            str,
         password:            str,
         ca_cert:             str,
-        recovery_timeout:    int = 60,
-        max_error_count:     int = 10,
+        connection_retry_interval:    int = 5,
+        connection_max_retry_count:     int = 10,
+        send_retry_interval: int = 5,
+        send_max_retry_count: int = 5,
+        mail_client: object = None,
         logger:              logging.Logger = logging.getLogger(__name__)
     ):
         """
@@ -67,14 +68,9 @@ class WorkerAdapter(MQClient):
         :param mail_client: mail client providing
             send_mail_notification(subject, body) method to send email
             notification when max_error_count is exceeded.
-        :param mail_subject_prefix: prefix for mail subject field
         :param username: username for MQ authenticaiton
         :param password: password for MQ authentication
         :param ca_cert: CA certificate for MQ authentication and encryption
-        :param recovery_timeout: timeout in seconds to wait before retrying
-            operation that failed.
-        :param max_error_count: maximum number of errors until email
-            notification is sent.
         :param logger: logger instance to use for log messages.
         """
         super().__init__(
@@ -86,10 +82,11 @@ class WorkerAdapter(MQClient):
         )
         self.zk_client = zk_client
         self.mail_client = mail_client
-        self.mail_subject_prefix = mail_subject_prefix
-        self.recovery_timeout = recovery_timeout
-        self.error_count = 0
-        self.max_error_count = 10
+
+        self.connection_retry_interval = connection_retry_interval
+        self.connection_max_retry_count = connection_max_retry_count
+        self.send_retry_interval = send_retry_interval
+        self.send_max_retry_count = send_max_retry_count
     
     def __del__(self):
         super().__del__()
@@ -156,13 +153,12 @@ class WorkerAdapter(MQClient):
                         max_retry=self.max_error_count + 1,
                         retry_interval=self.recovery_timeout
                     )
-                except ConnectionError:
+                except ConnectionError as e:
                     self.logger.error(
                         'Failed to connect to MQ servers, trying again!'
                     )
                     self.mail_client.send_mail_notification(
-                        subject=f'{self.mail_subject_prefix}'
-                                ' - MQ connection error!',
+                        subject=f'MQ connection error!',
                         body=f'{e}'
                     )
                     self.error_count += self.max_error_count + 1
@@ -183,8 +179,7 @@ class WorkerAdapter(MQClient):
                 self.logger.debug(f'Received error: {e}')
                 if self.error_count > self.max_error_count:
                     self.mail_client.send_mail_notification(
-                        subject=f'{self.mail_subject_prefix}'
-                                ' - MQ connection error!',
+                        subject=f'MQ connection error!',
                         body=f'{e}'
                     )
                 self.error_count += 1
@@ -195,8 +190,7 @@ class WorkerAdapter(MQClient):
                 self.logger.debug(f'Received error:\n{error}')
                 if self.error_count > self.max_error_count:
                     self.mail_client.send_mail_notification(
-                        subject=f'{self.mail_subject_prefix}'
-                                ' - Adapter error count exceeded!',
+                        subject=f'Adapter error count exceeded!',
                         body=f'{error}'
                     )
                 self.error_count += 1
@@ -212,8 +206,7 @@ class WorkerAdapter(MQClient):
                 )
                 self.logger.error(f'Received error:\n{error}')
                 self.mail_client.send_mail_notification(
-                    subject=f'{self.mail_subject_prefix}'
-                            ' - Unrecoverable error has occured during'
+                    subject=f'Unrecoverable error has occured during'
                             ' result receiving!',
                     body=f'{error}'
                 )
@@ -258,7 +251,7 @@ class WorkerAdapter(MQClient):
 
         return timestamp
 
-    def upload_request(self,
+    def send_request(self,
             processing_request: ProcessingRequest,
             output_queue_name: str
         ) -> datetime.datetime:
@@ -273,80 +266,66 @@ class WorkerAdapter(MQClient):
         :raise WorkerAdapterError when unrecoverable error occurs during request
             uploading.
         """
-        timestamp = None
+        send_retry_count = 0
+
         while True:
-            # watch for keyboard interrupt
+            # connect to MQ
             try:
-                # connect to MQ
-                try:
-                    self.mq_connect_retry(
-                        confirm_delivery=True,
-                        max_retry=self.max_error_count + 1,
-                        retry_interval=self.recovery_timeout
-                    )
-                except ConnectionError:
-                    self.logger.error(
-                        'Failed to connect to MQ servers, trying again!'
-                    )
+                self.mq_connect_retry(
+                    confirm_delivery=True,
+                    max_retry=self.connection_max_retry_count,
+                    retry_interval=self.connection_retry_interval
+                )
+
+            except ConnectionError as e:
+                self.logger.error(
+                    'Failed to connect to MQ servers, trying again!'
+                )
+                if self.mail_client is not None:
                     self.mail_client.send_mail_notification(
-                        subject=f'{self.mail_subject_prefix}'
-                                ' - MQ connection error!',
+                        subject=f'MQ connection error!',
                         body=f'{e}'
                     )
-                    self.error_count += self.max_error_count + 1
-                    continue
+                raise WorkerAdapterError(
+                    f'Failed to upload page {processing_request.page_uuid}'
+                    ' to MQ!'
+                ) from e
 
-                # upload processing request
-                try:
-                    timestamp = self.mq_send_request(
-                        processing_request=processing_request,
-                        output_queue_name=output_queue_name
-                    )
-                except pika.exceptions.AMQPError as e:
-                    self.logger.error(
-                        'Failed to upload processing request due to'
-                        ' MQ connection error!'
-                    )
-                    self.logger.debug(f'Received error: {e}')
-                    if self.error_count > self.max_error_count:
-                        self.mail_client.send_mail_notification(
-                            subject=f'{self.mail_subject_prefix}'
-                                    ' - MQ connection error!',
-                            body=f'{e}'
-                        )
-                    self.error_count += 1
-                    time.sleep(self.recovery_timeout)
-                    continue
-            except KeyboardInterrupt:
-                # prevent keyboard interrupt generating error messages
-                raise
-            except pika.exceptions.UnroutableError:
+            # upload processing request
+            try:
+                timestamp = self.mq_send_request(
+                    processing_request=processing_request,
+                    output_queue_name=output_queue_name
+                )
+
+            except pika.exceptions.UnroutableError as e:
                 raise BadRequestError(
                     message=f'Failed to upload page {processing_request.page_uuid}'
                     ' due to wrong input queue in configuration!',
                     request=processing_request
-                )
-            except Exception:
-                error = traceback.format_exc()
+                ) from e
+
+            except pika.exceptions.AMQPError as e:
                 self.logger.error(
-                    f'Failed to upload page {processing_request.page_uuid}'
-                    ' to MQ!'
+                    'Failed to upload processing request due to'
+                    ' MQ connection error!'
                 )
-                self.logger.error(f'Received error:\n{error}')
-                self.mail_client.send_mail_notification(
-                    subject=f'{self.mail_subject_prefix} - Failed to upload'
-                            f' page {processing_request.page_uuid} to MQ '
-                            'due to unrecoverable error!',
-                    body=f'{error}'
-                )
-                self.error_count += 1
-                raise WorkerAdapterError(
-                    f'Failed to upload page {processing_request.page_uuid}'
-                    ' to MQ!'
-                )
+                self.logger.debug(f'{e}')
+                if send_retry_count >= self.send_max_retry_count:
+                    if self.mail_client is not None:
+                        self.mail_client.send_mail_notification(
+                            subject=f'MQ connection error!',
+                            body=f'{e}'
+                        )
+                    raise WorkerAdapterError(
+                        f'Failed to upload page {processing_request.page_uuid}'
+                        ' to MQ!'
+                    ) from e
+                send_retry_count += 1
+                time.sleep(self.send_retry_interval)
+
+
             else:
-                # update page after successfull upload
-                self.error_count = 0
                 self.logger.info(
                     f'Page {processing_request.page_uuid}'
                     ' uploaded successfully!'

@@ -100,12 +100,13 @@ class MQClient:
             
             # Connect to MQ servers
             self.mq_connect(heartbeat=heartbeat, confirm_delivery=confirm_delivery)
-            retry_count += 1
 
             # maximum number of retries reached
             if max_retry and retry_count == max_retry:
                 break
-        
+
+            retry_count += 1
+
         if not (self.mq_connection and self.mq_connection.is_open and self.mq_channel and self.mq_channel.is_open):
             raise ConnectionError('Failed to connect to MQ servers, maximum number of retries reached!')
     

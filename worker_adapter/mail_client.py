@@ -10,14 +10,16 @@ class MailClient:
     """
     Mail client providing send_mail function for worker adapter.
     """
+
     def __init__(self,
-        user:str=None,
-        password:str=None,
-        receivers:list[str]=None,
-        host:str=None,
-        mail_interval=0,
-        logger=logging.getLogger(__name__)
-    ):
+                 user: str = None,
+                 password: str = None,
+                 receivers: list[str] = None,
+                 host: str = None,
+                 mail_interval: int = 0,
+                 mail_subject_prefix: str = '',
+                 logger=logging.getLogger(__name__)
+                 ):
         """
         Init - if arguments are omited, then send_mail function have to be used
         with all arguments.
@@ -34,6 +36,8 @@ class MailClient:
         self.receivers = receivers
         self.host = host
         self.mail_interval = datetime.timedelta(seconds=mail_interval)
+        self.mail_subject_prefix = mail_subject_prefix
+
         self.logger = logger
 
         self.last_mail_time = datetime.datetime(
@@ -42,15 +46,15 @@ class MailClient:
             day=1,
             tzinfo=datetime.timezone.utc
         )
-    
+
     @staticmethod
     def send_mail(
-        subject:str,
-        body:str,
-        user:str,
-        password:str,
-        receivers:list[str],
-        host:str
+            subject: str,
+            body: str,
+            user: str,
+            password: str,
+            receivers: list[str],
+            host: str
     ):
         """
         Send mail from user to receivers.
@@ -70,7 +74,7 @@ class MailClient:
             )
         else:
             client = SMTPMailer(host=host)
-        
+
         message = Message(
             subject=subject,
             sender=user,
@@ -78,8 +82,8 @@ class MailClient:
             html=body
         )
         client.send(message)
-    
-    def send_mail_notification(self, subject:str, body:str):
+
+    def send_mail_notification(self, subject: str, body: str):
         """
         Send mail notification with preconfigured arguments.
         Preconfigured arguments have to be supplied on object init.
@@ -93,29 +97,29 @@ class MailClient:
         :nothrow
         """
         # guard to check for incomplete arguments
-        if not self.user or not self.password  or \
-           not self.receivers or not self.host:
+        if not self.user or \
+                not self.receivers or not self.host:
             self.logger.error('Preconfigured arguemnts are empty!')
             self.logger.error(
                 'Preconfigured arguments must be supplied on '
                 f'{self.__class__.__name__} init!'
             )
             return
-        
+
         timestamp = datetime.datetime.now(datetime.timezone.utc)
         if timestamp - self.last_mail_time < self.mail_interval:
             return
-        
+
         self.last_mail_time = timestamp
-        
+
         try:
             self.send_mail(
-                subject=subject,
+                subject=' - '.join([self.mail_subject_prefix, subject]),
                 body=body.replace('\n', '<br>'),
                 user=self.user,
                 password=self.password,
                 receivers=self.receivers,
-                host=self.host
+                host=self.host,
             )
         except Exception:
             self.logger.error('Failed to send notificaton email!')
