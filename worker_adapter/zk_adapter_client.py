@@ -5,12 +5,13 @@ import worker_functions.connection_aux_functions as cf
 from worker_functions.zk_client import ZkClient
 
 import threading
-import logging
 import copy
+import logging
 
 
 class ZkAdapterClient(ZkClient):
-    def __init__(self, zookeeper_servers, username, password, ca_cert, logger):
+    def __init__(self, zookeeper_servers, username, password, ca_cert, 
+                 logger: logging.Logger = logging.getLogger(__name__)):
         """
         Initializes zookeeper adapter client.
         :param zookeeper_servers: list of zookeeper servers to connect to
