@@ -166,8 +166,7 @@ class WorkerAdapter(MQClient):
                         body=f'{e}'
                     )
                 raise WorkerAdapterError(
-                    f'Failed to upload page {processing_request.page_uuid}'
-                    ' to MQ!'
+                    f'Failed to upload page to MQ!'
                 ) from e
 
             try:
@@ -192,8 +191,7 @@ class WorkerAdapter(MQClient):
                             body=f'{e}'
                         )
                     raise WorkerAdapterError(
-                        f'Failed to upload page {processing_request.page_uuid}'
-                        ' to MQ!'
+                        f'Failed to upload page to MQ!'
                     ) from e
                 send_receive_retry_count += 1
                 time.sleep(self.send_receive_retry_interval)
@@ -210,8 +208,7 @@ class WorkerAdapter(MQClient):
                             body=f'{error}'
                         )
                     raise WorkerAdapterError(
-                        f'Failed to upload page {processing_request.page_uuid}'
-                        ' to MQ!'
+                        f'Failed to upload page to MQ!'
                     ) from e
                 send_receive_retry_count += 1
                 time.sleep(self.send_receive_retry_interval)
