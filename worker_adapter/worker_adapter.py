@@ -87,6 +87,7 @@ class WorkerAdapter(MQClient):
         self.connection_max_retry_count = connection_max_retry_count
         self.send_receive_retry_interval = send_receive_retry_interval
         self.send_receive_max_retry_count = send_receive_max_retry_count
+        self.receive_retry_count = 0
     
     def __del__(self):
         super().__del__()
@@ -127,7 +128,8 @@ class WorkerAdapter(MQClient):
             raise
         else:
             channel.basic_ack(delivery_tag = method.delivery_tag)
-    
+        self.receive_retry_count = 0
+
     def start_receiving_results(self,
         queue_name: str,
         on_message_receive: callable
@@ -140,13 +142,10 @@ class WorkerAdapter(MQClient):
             due to connection error whith some external service like database),
             method can raise WorkerAdapterRecoverableError to make adapter wait
             for some time and then pull the same message from the MQ again.
-        :return: execution status (0 == ok, else failed)
         """
-        return_code = 0
+
         self.on_message_receive = on_message_receive
         self.logger.info('Result receiving started!')
-
-        send_receive_retry_count = 0
 
         while True:
             try:
@@ -173,7 +172,7 @@ class WorkerAdapter(MQClient):
                 self.mq_channel.basic_consume(
                     queue_name,
                     self._mq_receive_result_callback,
-                    auto_ack = False
+                    auto_ack=False
                 )
                 self.mq_channel.start_consuming()
 
@@ -184,7 +183,7 @@ class WorkerAdapter(MQClient):
                 )
                 self.logger.debug(f'{e}')
 
-                if send_receive_retry_count >= self.send_receive_max_retry_count:
+                if self.receive_retry_count >= self.send_receive_max_retry_count:
                     if self.mail_client is not None:
                         self.mail_client.send_mail_notification(
                             subject=f'MQ connection error!',
@@ -193,7 +192,7 @@ class WorkerAdapter(MQClient):
                     raise WorkerAdapterError(
                         f'Failed to upload page to MQ!'
                     ) from e
-                send_receive_retry_count += 1
+                self.receive_retry_count += 1
                 time.sleep(self.send_receive_retry_interval)
 
             except WorkerAdapterRecoverableError as e:
@@ -201,7 +200,7 @@ class WorkerAdapter(MQClient):
                 error = traceback.format_exc()
                 self.logger.error('Failed to receive result!')
                 self.logger.debug(f'Received error:\n{error}')
-                if send_receive_retry_count > self.send_receive_max_retry_count:
+                if self.receive_retry_count > self.send_receive_max_retry_count:
                     if self.mail_client is not None:
                         self.mail_client.send_mail_notification(
                             subject=f'Adapter error count exceeded!',
@@ -210,11 +209,9 @@ class WorkerAdapter(MQClient):
                     raise WorkerAdapterError(
                         f'Failed to upload page to MQ!'
                     ) from e
-                send_receive_retry_count += 1
+                self.receive_retry_count += 1
                 time.sleep(self.send_receive_retry_interval)
-        
-        return return_code
-    
+
     def mq_send_request(self,
         processing_request: ProcessingRequest,
         output_queue_name: str
